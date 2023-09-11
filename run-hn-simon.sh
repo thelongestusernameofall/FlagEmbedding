@@ -5,7 +5,7 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6
 base_model=../bge-large-zh
 action_dict=../all-0911-action-dict.json
 output_file=../all-0911-hn.jsonl
-common_query=../zhihu-sample-10000.jsonl
+common_query=../zhihu-sample-200000.jsonl
 batch_size=1024
 
 python -m FlagEmbedding.baai_general_embedding.finetune.hn_simon \
@@ -14,6 +14,6 @@ python -m FlagEmbedding.baai_general_embedding.finetune.hn_simon \
          --output_file ${output_file} \
          --candidate_pool ${common_query} \
          --range_for_sampling 1-200 \
-         --negative_number 20 \
+         --negative_number 30 \
          --batch_size ${batch_size} \
          --use_gpu_for_searching
