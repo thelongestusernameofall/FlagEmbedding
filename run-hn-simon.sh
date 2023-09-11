@@ -6,7 +6,7 @@ base_model=../bge-large-zh
 action_dict=../all-0911-action-dict.json
 output_file=../all-0911-hn.jsonl
 common_query=../zhihu-sample-200000.jsonl
-batch_size=1024
+batch_size=4096
 
 python -m FlagEmbedding.baai_general_embedding.finetune.hn_simon \
          --model_name_or_path ${base_model} \
