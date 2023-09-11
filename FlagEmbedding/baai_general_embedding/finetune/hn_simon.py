@@ -16,8 +16,9 @@ def get_args():
     parser.add_argument('--output_file', default=None, type=str)
     parser.add_argument('--range_for_sampling', default=None, type=str, help="range to sample negatives")
     parser.add_argument('--use_gpu_for_searching', action='store_true', help='use faiss-gpu')
-    parser.add_argument('--negative_number', default=15, help='use faiss-gpu')
+    parser.add_argument('--negative_number', default=15, help='negative number for each query')
     parser.add_argument('--query_instruction_for_retrieval', default="")
+    parser.add_argument('--batch_size', default=256, type=int, help='batch size for inference')
 
     return parser.parse_args()
 
@@ -143,7 +144,8 @@ def create_querys(query, number=5):
     return result
 
 
-def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, negative_number, use_gpu):
+def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, negative_number, use_gpu,
+                 batch_size=256):
     corpus = []
     queries = []
     train_data = []
@@ -172,10 +174,10 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
     corpus.extend(pool_corpus)
 
     print(f'inferencing embedding for corpus (number={len(corpus)})--------------')
-    p_vecs = model.encode(corpus, batch_size=256)
+    p_vecs = model.encode(corpus, batch_size=batch_size)
 
     print(f'inferencing embedding for queries (number={len(queries)})--------------')
-    q_vecs = model.encode_queries(queries, batch_size=256)
+    q_vecs = model.encode_queries(queries, batch_size=batch_size)
 
     print('creat index and search------------------')
     index = create_index(p_vecs, use_gpu=use_gpu)
@@ -217,4 +219,5 @@ if __name__ == '__main__':
                  output_file=args.output_file,
                  sample_range=sample_range,
                  negative_number=args.negative_number,
-                 use_gpu=args.use_gpu_for_searching)
+                 use_gpu=args.use_gpu_for_searching,
+                 batch_size=args.batch_size)
