@@ -159,13 +159,17 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
         for prompt in prompts:
             prompt_dict[prompt] = action
             corpus.append(prompt)
-            queries.extend(create_querys(prompt, number=1))
+            # queries.extend(create_querys(prompt, number=1))
+
+    corpus = list(set(corpus))
+    for prompt in corpus:
+        queries.extend(create_querys(prompt, number=1))
 
     pool_corpus = []
     if candidate_pool is not None:
         pool_corpus = get_corpus(candidate_pool)
+        pool_corpus = list(set(pool_corpus))
     corpus.extend(pool_corpus)
-    corpus = list(set(corpus))
 
     print(f'inferencing embedding for corpus (number={len(corpus)})--------------')
     p_vecs = model.encode(corpus, batch_size=256)
