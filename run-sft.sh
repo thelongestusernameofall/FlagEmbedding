@@ -3,9 +3,9 @@
 unset http_proxy https_proxy
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6
 
-base_model=../bge-large-zh
-out_model=../bge-large-zh-911
-train_data=../all-0911-hn.jsonl
+base_model=../bge-large-zh-911
+out_model=../bge-large-zh-1029
+train_data=../all-1029-hn.jsonl
 
 batch_size=160
 epochs=10
