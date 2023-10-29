@@ -3,7 +3,7 @@ import os
 
 import torch
 from torch import nn
-from transformers import BertForMaskedLM, AutoModelForMaskedLM, DistilBertForMaskedLM
+from transformers import BertForMaskedLM, AutoModelForMaskedLM
 from transformers.modeling_outputs import MaskedLMOutput
 
 from .arguments import ModelArguments
@@ -34,6 +34,9 @@ class RetroMAEForPretraining(nn.Module):
         self.cross_entropy = nn.CrossEntropyLoss()
 
         self.model_args = model_args
+
+    def gradient_checkpointing_enable(self):
+        self.lm.gradient_checkpointing_enable()
 
     def forward(self,
                 encoder_input_ids, encoder_attention_mask, encoder_labels,

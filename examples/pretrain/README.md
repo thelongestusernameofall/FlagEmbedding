@@ -2,7 +2,7 @@
 In this example, we show how to do pre-training using retromae, 
 which can improve the retrieval performance. 
 
-## Installation
+## 1. Installation
 * **with pip**
 ```
 pip install -U FlagEmbedding
@@ -20,14 +20,14 @@ pip install -e .
 ```
 
 
-## Data format
+## 2. Data format
 Train data should be a json file, where each line is a dict like this:
 ```
 {"text": str}
 ```
-See [toy_pretrain_data.jsonl]() for a toy data file.
+See [toy_pretrain_data.jsonl](https://github.com/FlagOpen/FlagEmbedding/blob/master/examples/pretrain/toy_pretrain_data.jsonl) for a toy data file.
 
-## Train
+## 3. Train
 
 ```bash
 torchrun --nproc_per_node {number of gpus} \
@@ -40,7 +40,8 @@ torchrun --nproc_per_node {number of gpus} \
 --per_device_train_batch_size {batch size; set 1 for toy data} \
 --dataloader_drop_last True \
 --max_seq_length 512 \
---logging_steps 10
+--logging_steps 10 \
+--dataloader_num_workers 12
 ```
 
 More training arguments please refer to [transformers.TrainingArguments](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments). 

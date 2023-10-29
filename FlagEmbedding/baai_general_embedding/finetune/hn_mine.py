@@ -1,7 +1,7 @@
 import argparse
 import json
 import random
-
+import numpy as np
 import faiss
 from tqdm import tqdm
 
@@ -14,9 +14,9 @@ def get_args():
     parser.add_argument('--input_file', default=None, type=str)
     parser.add_argument('--candidate_pool', default=None, type=str)
     parser.add_argument('--output_file', default=None, type=str)
-    parser.add_argument('--range_for_sampling', default=None, type=str, help="range to sample negatives")
+    parser.add_argument('--range_for_sampling', default="10-210", type=str, help="range to sample negatives")
     parser.add_argument('--use_gpu_for_searching', action='store_true', help='use faiss-gpu')
-    parser.add_argument('--negative_number', default=15, help='use faiss-gpu')
+    parser.add_argument('--negative_number', default=15, type=int, help='the number of negatives')
     parser.add_argument('--query_instruction_for_retrieval', default="")
 
     return parser.parse_args()
@@ -24,6 +24,7 @@ def get_args():
 
 def create_index(embeddings, use_gpu):
     index = faiss.IndexFlatIP(len(embeddings[0]))
+    embeddings = np.asarray(embeddings, dtype=np.float32)
     if use_gpu:
         co = faiss.GpuMultipleClonerOptions()
         co.shard = True
@@ -40,7 +41,7 @@ def batch_search(index,
     all_scores, all_inxs = [], []
     for start_index in tqdm(range(0, len(query), batch_size), desc="Batches", disable=len(query) < 256):
         batch_query = query[start_index:start_index + batch_size]
-        batch_scores, batch_inxs = index.search(batch_query, k=topk)
+        batch_scores, batch_inxs = index.search(np.asarray(batch_query, dtype=np.float32), k=topk)
         all_scores.extend(batch_scores.tolist())
         all_inxs.extend(batch_inxs.tolist())
     return all_scores, all_inxs
@@ -61,19 +62,24 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
     for line in open(input_file):
         line = json.loads(line.strip())
         train_data.append(line)
-        corpus.extend(line['neg'])
+        corpus.extend(line['pos'])
+        if 'neg' in line:
+            corpus.extend(line['neg'])
         queries.append(line['query'])
 
     if candidate_pool is not None:
-        corpus = get_corpus(candidate_pool)
-    corpus = list(set(corpus))
+        if not isinstance(candidate_pool, list):
+            candidate_pool = get_corpus(candidate_pool)
+        corpus = list(set(candidate_pool))
+    else:
+        corpus = list(set(corpus))
 
     print(f'inferencing embedding for corpus (number={len(corpus)})--------------')
     p_vecs = model.encode(corpus, batch_size=256)
     print(f'inferencing embedding for queries (number={len(queries)})--------------')
     q_vecs = model.encode_queries(queries, batch_size=256)
 
-    print('creat index and search------------------')
+    print('create index and search------------------')
     index = create_index(p_vecs, use_gpu=use_gpu)
     _, all_inxs = batch_search(index, q_vecs, topk=sample_range[-1])
     assert len(all_inxs) == len(train_data)
