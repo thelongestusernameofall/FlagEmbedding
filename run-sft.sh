@@ -1,7 +1,7 @@
 #!/bin/bash
 
 unset http_proxy https_proxy
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 base_model=../bge-large-zh-911
 out_model=../bge-large-zh-1029
@@ -10,12 +10,13 @@ train_data=../all-1029-hn.jsonl
 batch_size=160
 epochs=10
 
+master_port=29600
 
 cuda_visible_devices="$CUDA_VISIBLE_DEVICES"
 devices=($(echo "$cuda_visible_devices" | tr ',' ' '))
 num_devices="${#devices[@]}"
 
-torchrun --nproc_per_node $num_devices \
+torchrun --nproc_per_node $num_devices --master-port ${master_port} \
 -m FlagEmbedding.baai_general_embedding.finetune.run \
 --output_dir ${out_model} \
 --model_name_or_path ${base_model} \

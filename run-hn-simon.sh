@@ -1,6 +1,6 @@
 #!/bin/bash
 unset http_proxy https_proxy
-export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 base_model=../bge-large-zh-911
 action_dict=../all-1029-action-dict.json
