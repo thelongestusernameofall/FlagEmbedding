@@ -140,6 +140,9 @@ def create_querys(query, number=5):
     result = []
     for i in range(number):
         item = get_prefix() + "," + query + "," + get_suffix() + "."
+        # 50% chance to remove 【】
+        if "【" and "】" in item and random.random() < 0.5:
+            item = item.replace("【", "").replace("】", "")
         result.append(item)
     return result
 
