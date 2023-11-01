@@ -147,8 +147,8 @@ def create_querys(query, number=5):
     return result
 
 
-def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, negative_number, use_gpu,
-                 batch_size=256):
+def find_knn_neg_old(model, input_file, candidate_pool, output_file, sample_range, negative_number, use_gpu,
+                     batch_size=256):
     corpus = []
     queries = []
     train_data = []
@@ -196,6 +196,74 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
             if inx == -1: break
             if corpus[inx] not in item['pos'] and corpus[inx] != query and corpus[inx] not in prompt_dict or \
                     prompt_dict[corpus[inx]] != action:
+                filtered_inx.append(inx)
+        if len(filtered_inx) > negative_number:
+            filtered_inx = random.sample(filtered_inx, negative_number)
+        item['neg'] = [corpus[inx] for inx in filtered_inx]
+        train_data.append(item)
+
+    with open(output_file, 'w') as f:
+        for data in train_data:
+            # if len(data['neg']) < negative_number:
+            #     data['neg'].extend(random.sample(corpus, negative_number - len(data['neg'])))
+            f.write(json.dumps(data, ensure_ascii=False) + '\n')
+
+
+def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, negative_number, use_gpu,
+                 batch_size=256):
+    corpus = []
+    queries = []
+    poses = {}
+    train_data = []
+    # action_dict = {}
+
+    fh = open(input_file, "r", encoding="utf-8")
+    action_dict = json.loads(fh.read())
+    fh.close()
+
+    prompt_dict = {}
+    # prompts to action map
+    for action, prompts in action_dict.items():
+        for prompt_pair in prompts:
+            for prompt, pos in prompt_pair.items():
+                prompt_dict[prompt] = action
+                poses[prompt] = pos
+
+                corpus.append(prompt)
+                queries.append(prompt)
+                corpus.append(pos)
+
+    corpus = list(set(corpus))
+    # for prompt in corpus:
+    #     queries.extend(create_querys(prompt, number=1))
+
+    pool_corpus = []
+    if candidate_pool is not None:
+        pool_corpus = get_corpus(candidate_pool)
+        pool_corpus = list(set(pool_corpus))
+    corpus.extend(pool_corpus)
+
+    print(f'inferencing embedding for corpus (number={len(corpus)})--------------')
+    p_vecs = model.encode(corpus, batch_size=batch_size)
+
+    print(f'inferencing embedding for queries (number={len(queries)})--------------')
+    q_vecs = model.encode_queries(queries, batch_size=batch_size)
+
+    print('creat index and search------------------')
+    index = create_index(p_vecs, use_gpu=use_gpu)
+    _, all_inxs = batch_search(index, q_vecs, topk=sample_range[-1])
+
+    for i, query in enumerate(queries):
+        pos = poses[query]
+        action = prompt_dict[query]
+
+        item = {"query": query, "pos": [pos]}
+        inxs = all_inxs[i][sample_range[0]:sample_range[1]]
+        filtered_inx = []
+        for inx in inxs:
+            if inx == -1: break
+            # corpus[inx] not in item['pos'] and corpus[inx] != query and
+            if corpus[inx] not in prompt_dict or prompt_dict[corpus[inx]] != action:
                 filtered_inx.append(inx)
         if len(filtered_inx) > negative_number:
             filtered_inx = random.sample(filtered_inx, negative_number)
