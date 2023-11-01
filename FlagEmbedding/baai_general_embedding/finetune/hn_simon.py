@@ -267,6 +267,8 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
         if len(filtered_inx) > negative_number:
             filtered_inx = random.sample(filtered_inx, negative_number)
         item['neg'] = [corpus[inx] for inx in filtered_inx]
+        if len(item['neg']) == 0:
+            continue
         train_data.append(item)
 
     with open(output_file, 'w') as f:
