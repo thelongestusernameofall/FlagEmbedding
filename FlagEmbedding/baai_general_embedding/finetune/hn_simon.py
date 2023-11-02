@@ -226,6 +226,7 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
     for action, prompt_pair in action_dict.items():
         for prompt, pos in prompt_pair.items():
             prompt_dict[prompt] = action
+            prompt_dict[pos] = action
             poses[prompt] = pos
 
             corpus.append(prompt)
