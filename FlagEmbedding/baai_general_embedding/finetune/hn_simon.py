@@ -272,6 +272,8 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
             continue
         train_data.append(item)
 
+    # random shuffle
+    random.shuffle(train_data)
     with open(output_file, 'w') as f:
         for data in train_data:
             # if len(data['neg']) < negative_number:
