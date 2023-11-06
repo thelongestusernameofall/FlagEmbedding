@@ -265,6 +265,7 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
             # corpus[inx] not in item['pos'] and corpus[inx] != query and
             if corpus[inx] not in prompt_dict or prompt_dict[corpus[inx]] != action:
                 filtered_inx.append(inx)
+        filtered_inx = list(set(filtered_inx))
         if len(filtered_inx) > negative_number:
             filtered_inx = random.sample(filtered_inx, negative_number)
         item['neg'] = [corpus[inx] for inx in filtered_inx]
