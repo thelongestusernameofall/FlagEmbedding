@@ -44,12 +44,12 @@ python -m FlagEmbedding.baai_general_embedding.finetune.hn_mine \
 --use_gpu_for_searching
 ```
 
-- `input_file`: json data for finetuning. This script will retrieval top-k documents for each query, 
+- `input_file`: json data for finetuning. This script will retrieve top-k documents for each query, 
 and random sample negatives from the top-k documents (not including the positive documents).
-- `output_file`: path to save json data with mined hard negatives for finetuning
-- `range_for_sampling`: where to sample negative. For example, `2-100` means sampling negative from top2-top200 documents. 
-- `candidate_pool`: The pool to retrieval. Default value is None, and this script will retrieve from the combination of all `neg` in `input_file`. 
-The format of this file is the same as pretrain data. If input a candidate_pool, this script will retrieve negative from this file.
+- `output_file`: path to save JSON data with mined hard negatives for finetuning
+- `range_for_sampling`: where to sample negative. For example, `2-100` means sampling negative from top2-top200 documents. **You can set larger value to reduce the difficulty of negatives (e.g., set it `60-300` to sample negatives from top50-300 passages)**
+- `candidate_pool`: The pool to retrieval. The default value is None, and this script will retrieve from the combination of all `neg` in `input_file`. 
+The format of this file is the same as [pretrain data](https://github.com/FlagOpen/FlagEmbedding/tree/master/examples/pretrain#2-data-format). If input a candidate_pool, this script will retrieve negatives from this file.
 - `use_gpu_for_searching`: whether use faiss-gpu to retrieve negatives.
 
 
@@ -72,7 +72,7 @@ torchrun --nproc_per_node {number of gpus} \
 --train_group_size 2 \
 --negatives_cross_device \
 --logging_steps 10 \
---query_instruction_for_retrieval "为这个句子生成表示以用于检索相关文章：" 
+--query_instruction_for_retrieval "" 
 ```
 
 **some important arguments**:
@@ -88,16 +88,62 @@ Besides the negatives in this group, the in-batch negatives also will be used in
 - `passage_max_len`: max length for passage. Please set it according the average length of passages in your data.
 - `query_instruction_for_retrieval`: instruction for query, which will be added to each query. You also can set it `""` to add nothing to query.
 
-More training arguments please refer to [transformers.TrainingArguments](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments)
+For more training arguments please refer to [transformers.TrainingArguments](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments)
 
 
-### 4. Load your model
-After fine-tuning BGE model, you can load it easily in the same way as [here(with FlagModel)](https://github.com/FlagOpen/FlagEmbedding#using-flagembedding) / [(with transformers)](https://github.com/FlagOpen/FlagEmbedding#using-huggingface-transformers).
+### 4. Model merging via [LM-Cocktail](https://github.com/FlagOpen/FlagEmbedding/tree/master/LM_Cocktail)
+
+For more details please refer to [LM-Cocktail](https://github.com/FlagOpen/FlagEmbedding/tree/master/LM_Cocktail).
+
+Fine-tuning the base bge model can improve its performance on target task, 
+but maybe lead to severe degeneration of model’s general capabilities 
+beyond the targeted domain (e.g., lower performance on c-mteb tasks). 
+By merging the fine-tuned model and the base model, 
+LM-Cocktail can significantly enhance performance in downstream task
+while maintaining performance in other unrelated tasks.
+
+```python
+from LM_Cocktail import mix_models, mix_models_with_data
+
+# Mix fine-tuned model and base model; then save it to output_path: ./mixed_model_1
+model = mix_models(
+    model_names_or_paths=["BAAI/bge-large-en-v1.5", "your_fine-tuned_model"], 
+    model_type='encoder', 
+    weights=[0.5, 0.5],  # you can change the weights to get a better trade-off.
+    output_path='./mixed_model_1')
+```
+
+If you have a new task, and there is no data or resource can be used for fine-tuning, 
+you can try to use LM-Cocktail to merge existing models (from open-source community or your models fine-tuned on other tasks) to produce a task-specific model. 
+In this way, you just need to construct a few example data and don't need fine-tuning the base model.
+For example, you can merge the models from [huggingface](https://huggingface.co/Shitao) using the example data for your task:
+```python
+from LM_Cocktail import mix_models, mix_models_with_data
+
+example_data = [
+    {"query": "How does one become an actor in the Telugu Film Industry?", "pos": [" How do I become an actor in Telugu film industry?"], "neg": [" What is the story of Moses and Ramesses?", " Does caste system affect economic growth of India?"]}, 
+    {"query": "Why do some computer programmers develop amazing software or new concepts, while some are stuck with basic programming work?", "pos": [" Why do some computer programmers develops amazing softwares or new concepts, while some are stuck with basics programming works?"], "neg": [" When visiting a friend, do you ever think about what would happen if you did something wildly inappropriate like punch them or destroy their furniture?", " What is the difference between a compliment and flirting?"]}
+]
+
+model = mix_models_with_data(
+    model_names_or_paths=["BAAI/bge-base-en-v1.5", "Shitao/bge-hotpotqa", "Shitao/bge-quora"], 
+    model_type='encoder', 
+    example_ata=example_data,
+    temperature=5.0,
+    max_input_length=512,
+    neg_number=2)
+```
+**Since there are only 9 `bge-*` models in this [repo](https://huggingface.co/Shitao), the performance may not be satisfactory when your task is different with all 9 fine-tuning tasks. 
+You can fine-tune the base model on more tasks and merge them to achieve better performance on your task.**
+
+
+### 5. Load your model
+After fine-tuning BGE model, you can load it easily in the same way as [here](https://github.com/FlagOpen/FlagEmbedding/tree/master/FlagEmbedding/baai_general_embedding#usage) 
 
 Please replace the `query_instruction_for_retrieval` with your instruction if you set a different value for hyper-parameter `--query_instruction_for_retrieval` when fine-tuning.
 
 
-### 5. Evaluate model on MSMARCO
+### 6. Evaluate model
 We provide [a simple script](https://github.com/FlagOpen/FlagEmbedding/tree/master/FlagEmbedding/baai_general_embedding/finetune/eval_msmarco.py) to evaluate the model's performance on MSMARCO, a widely used retrieval benchmark. 
 
 First, install `faiss`, a popular approximate nearest neighbor search library:

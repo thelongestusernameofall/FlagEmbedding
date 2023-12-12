@@ -13,7 +13,7 @@ class FlagModel:
             pooling_method: str = 'cls',
             normalize_embeddings: bool = True,
             query_instruction_for_retrieval: str = None,
-            use_fp16: bool=True
+            use_fp16: bool = True
     ) -> None:
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
@@ -37,10 +37,10 @@ class FlagModel:
             print(f"----------using {self.num_gpus}*GPUs----------")
             self.model = torch.nn.DataParallel(self.model)
 
-
     def encode_queries(self, queries: Union[List[str], str],
-                       batch_size: int=256,
-                       max_length: int=512) -> np.ndarray:
+                       batch_size: int = 256,
+                       max_length: int = 512,
+                       convert_to_numpy: bool = True) -> np.ndarray:
         '''
         This function will be used for retrieval task
         if there is a instruction for queries, we will add it to the query text
@@ -52,22 +52,25 @@ class FlagModel:
                 input_texts = ['{}{}'.format(self.query_instruction_for_retrieval, q) for q in queries]
         else:
             input_texts = queries
-        return self.encode(input_texts, batch_size=batch_size, max_length=max_length)
-
+        return self.encode(input_texts, batch_size=batch_size, max_length=max_length, convert_to_numpy=convert_to_numpy)
 
     def encode_corpus(self,
                       corpus: Union[List[str], str],
-                      batch_size: int=256,
-                      max_length: int=512) -> np.ndarray:
+                      batch_size: int = 256,
+                      max_length: int = 512,
+                      convert_to_numpy: bool = True) -> np.ndarray:
         '''
         This function will be used for retrieval task
         encode corpus for retrieval task
         '''
-        return self.encode(corpus, batch_size=batch_size, max_length=max_length)
-
+        return self.encode(corpus, batch_size=batch_size, max_length=max_length, convert_to_numpy=convert_to_numpy)
 
     @torch.no_grad()
-    def encode(self, sentences: Union[List[str], str], batch_size: int=256, max_length: int=512) -> np.ndarray:
+    def encode(self,
+               sentences: Union[List[str], str],
+               batch_size: int = 256,
+               max_length: int = 512,
+               convert_to_numpy: bool = True) -> np.ndarray:
         if self.num_gpus > 0:
             batch_size = batch_size * self.num_gpus
         self.model.eval()
@@ -78,7 +81,8 @@ class FlagModel:
             input_was_string = True
 
         all_embeddings = []
-        for start_index in tqdm(range(0, len(sentences), batch_size), desc="Inference Embeddings", disable=len(sentences)<256):
+        for start_index in tqdm(range(0, len(sentences), batch_size), desc="Inference Embeddings",
+                                disable=len(sentences) < 256):
             sentences_batch = sentences[start_index:start_index + batch_size]
             inputs = self.tokenizer(
                 sentences_batch,
@@ -92,17 +96,23 @@ class FlagModel:
             if self.normalize_embeddings:
                 embeddings = torch.nn.functional.normalize(embeddings, dim=-1)
             embeddings = cast(torch.Tensor, embeddings)
-            all_embeddings.append(embeddings.cpu().numpy())
 
-        all_embeddings = np.concatenate(all_embeddings, axis=0)
+            if convert_to_numpy:
+                embeddings = embeddings.cpu().numpy()
+            all_embeddings.append(embeddings)
+
+        if convert_to_numpy:
+            all_embeddings = np.concatenate(all_embeddings, axis=0)
+        else:
+            all_embeddings = torch.stack(all_embeddings)
+
         if input_was_string:
             return all_embeddings[0]
         return all_embeddings
 
-
     def pooling(self,
                 last_hidden_state: torch.Tensor,
-                attention_mask: torch.Tensor=None):
+                attention_mask: torch.Tensor = None):
         if self.pooling_method == 'cls':
             return last_hidden_state[:, 0]
         elif self.pooling_method == 'mean':
@@ -121,8 +131,16 @@ class FlagReranker:
         self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
         self.model = AutoModelForSequenceClassification.from_pretrained(model_name_or_path)
 
-        if use_fp16: self.model.half()
-        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        if torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        elif torch.backends.mps.is_available():
+            self.device = torch.device('mps')
+        else:
+            self.device = torch.device('cpu')
+            use_fp16 = False
+        if use_fp16:
+            self.model.half()
+
         self.model = self.model.to(self.device)
 
         self.model.eval()
@@ -189,7 +207,7 @@ class LLMEmbedder:
             "key": "Transform this tool description for retrieval: "
         },
     }
-    
+
     def __init__(
             self,
             model_name_or_path: str = None,
@@ -218,17 +236,16 @@ class LLMEmbedder:
             print(f"----------using {self.num_gpus}*GPUs----------")
             self.model = torch.nn.DataParallel(self.model)
 
-
     def encode_queries(self, queries: Union[List[str], str],
-                       batch_size: int=256,
-                       max_length: int=256,
-                       task: str='qa') -> np.ndarray:
+                       batch_size: int = 256,
+                       max_length: int = 256,
+                       task: str = 'qa') -> np.ndarray:
         '''
         Encode queries into dense vectors. 
         Automatically add instructions according to given task.
         '''
         instruction = self.instructions[task]["query"]
-        
+
         if isinstance(queries, str):
             input_texts = instruction + queries
         else:
@@ -236,26 +253,24 @@ class LLMEmbedder:
 
         return self._encode(input_texts, batch_size=batch_size, max_length=max_length)
 
-
     def encode_keys(self, keys: Union[List[str], str],
-                      batch_size: int=256,
-                      max_length: int=512,
-                      task: str='qa') -> np.ndarray:
+                    batch_size: int = 256,
+                    max_length: int = 512,
+                    task: str = 'qa') -> np.ndarray:
         '''
         Encode keys into dense vectors. 
         Automatically add instructions according to given task.
         '''
         instruction = self.instructions[task]["key"]
-        
+
         if isinstance(keys, str):
             input_texts = instruction + keys
         else:
-            input_texts = [instruction + k for k in keys]        
+            input_texts = [instruction + k for k in keys]
         return self._encode(input_texts, batch_size=batch_size, max_length=max_length)
 
-
     @torch.no_grad()
-    def _encode(self, sentences: Union[List[str], str], batch_size: int=256, max_length: int=512) -> np.ndarray:
+    def _encode(self, sentences: Union[List[str], str], batch_size: int = 256, max_length: int = 512) -> np.ndarray:
         if self.num_gpus > 0:
             batch_size = batch_size * self.num_gpus
         self.model.eval()
@@ -266,7 +281,8 @@ class LLMEmbedder:
             input_was_string = True
 
         all_embeddings = []
-        for start_index in tqdm(range(0, len(sentences), batch_size), desc="Inference Embeddings", disable=len(sentences)<256):
+        for start_index in tqdm(range(0, len(sentences), batch_size), desc="Inference Embeddings",
+                                disable=len(sentences) < 256):
             sentences_batch = sentences[start_index:start_index + batch_size]
             inputs = self.tokenizer(
                 sentences_batch,
@@ -287,10 +303,9 @@ class LLMEmbedder:
             return all_embeddings[0]
         return all_embeddings
 
-
     def pooling(self,
                 last_hidden_state: torch.Tensor,
-                attention_mask: torch.Tensor=None):
+                attention_mask: torch.Tensor = None):
         if self.pooling_method == 'cls':
             return last_hidden_state[:, 0]
         elif self.pooling_method == 'mean':

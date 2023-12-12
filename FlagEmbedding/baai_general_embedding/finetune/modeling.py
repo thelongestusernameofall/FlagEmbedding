@@ -36,6 +36,8 @@ class BiEncoderModel(nn.Module):
         self.normlized = normlized
         self.sentence_pooling_method = sentence_pooling_method
         self.temperature = temperature
+        self.config = self.model.config
+
         if not normlized:
             self.temperature = 1.0
             logger.info("reset temperature = 1.0 due to using inner product to compute similarity")
@@ -50,8 +52,8 @@ class BiEncoderModel(nn.Module):
             self.process_rank = dist.get_rank()
             self.world_size = dist.get_world_size()
 
-    def gradient_checkpointing_enable(self):
-        self.model.gradient_checkpointing_enable()
+    def gradient_checkpointing_enable(self, **kwargs):
+        self.model.gradient_checkpointing_enable(**kwargs)
 
     def sentence_embedding(self, hidden_state, mask):
         if self.sentence_pooling_method == 'mean':

@@ -25,7 +25,7 @@ The data format for reranker is the same as [embedding fine-tune](https://github
 Besides, we strongly suggest to [mine hard negatives](https://github.com/FlagOpen/FlagEmbedding/tree/master/examples/finetune#hard-negatives) to fine-tune reranker.
 
 
-## Train
+## 3. Train
 
 ```
 torchrun --nproc_per_node {number of gpus} \
@@ -55,8 +55,32 @@ Besides the negatives in this group, the in-batch negatives also will be used in
 More training arguments please refer to [transformers.TrainingArguments](https://huggingface.co/docs/transformers/main_classes/trainer#transformers.TrainingArguments)
 
 
+### 4. Model merging via [LM-Cocktail](https://github.com/FlagOpen/FlagEmbedding/tree/master/LM_Cocktail)
 
-### 3. Load your model
+For more details please refer to [LM-Cocktail](https://github.com/FlagOpen/FlagEmbedding/tree/master/LM_Cocktail).
+
+Fine-tuning the base bge model can improve its performance on target task, 
+but maybe lead to severe degeneration of model’s general capabilities 
+beyond the targeted domain (e.g., lower performance on c-mteb tasks). 
+By merging the fine-tuned model and the base model, 
+LM-Cocktail can significantly enhance performance in downstream task
+while maintaining performance in other unrelated tasks.
+
+```python
+from LM_Cocktail import mix_models, mix_models_with_data
+
+# Mix fine-tuned model and base model; then save it to output_path: ./mixed_model_1
+model = mix_models(
+    model_names_or_paths=["BAAI/bge-reranker-base", "your_fine-tuned_model"], 
+    model_type='encoder', 
+    weights=[0.5, 0.5],  # you can change the weights to get a better trade-off.
+    output_path='./mixed_model_1')
+```
+
+
+
+
+### 5. Load your model
 
 ### Using FlagEmbedding
 

@@ -68,6 +68,24 @@ Below are several important arguments for training. The meaning and usage of oth
 bash scripts/llm-embedder.sh
 ```
 
+### LLM-Embedder (Toy Example)
+We provide a toy example for fine-tuning LLM-Embedder based on [8 records sampled from each task](../data/toy).
+
+```bash
+torchrun --nproc_per_node=8 run_dense.py \
+--train_data data/toy/* \
+--output_dir data/outputs/toy \
+--save_steps 5 \
+--max_steps 5 \
+--logging_steps 1 \
+--inbatch_same_dataset epoch \
+--use_train_config \
+--learning_rate 5e-6 \
+--per_device_train_batch_size 1 \
+--version llm-embedder
+```
+
+
 ### Single Task Fine-Tune
 Below we provide commands to fine-tune a retriever on a single task.
 
@@ -166,7 +184,7 @@ torchrun --nproc_per_node=8 -m evaluation.eval_retrieval \
 --data_root /data/llm-embedder
 
 # BM25 (the result will be saved at llm-embedder:qa/nq/train.neg.bm25.json)
-torchrun --nproc_per_node 8 -m evaluation.eval_retrieval \
+python -m evaluation.eval_retrieval \
 --retrieval_method bm25 \
 --eval_data llm-embedder:qa/nq/train.json \
 --corpus llm-embedder:qa/nq/corpus.json \
