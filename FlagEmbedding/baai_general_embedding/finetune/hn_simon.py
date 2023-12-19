@@ -263,12 +263,12 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
         inxs = all_inxs[i][sample_range[0]:sample_range[1]]
         scores = all_scores[i][sample_range[0]:sample_range[1]]
         filtered_inx = []
-        for inx in inxs:
+        for i, inx in enumerate(inxs):
             if inx == -1:
                 break
             # corpus[inx] not in item['pos'] and corpus[inx] != query and
             if corpus[inx] not in prompt_dict or prompt_dict[corpus[inx]] != action:
-                if scores[inx] < score_threshold:
+                if scores[i] < score_threshold:
                     break
                 filtered_inx.append(inx)
         filtered_inx = list(set(filtered_inx))
