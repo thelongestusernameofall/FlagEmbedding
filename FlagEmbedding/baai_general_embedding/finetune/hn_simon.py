@@ -222,7 +222,7 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
     action_dict = json.loads(fh.read())
     fh.close()
 
-    prompt_dict = {}
+    prompt_dict = {} # prompt: action
     # prompts to action map
     for action, prompt_pair in action_dict.items():
         for prompt, pos in prompt_pair.items():
@@ -254,6 +254,7 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
     print('create index and search------------------')
     index = create_index(p_vecs, use_gpu=use_gpu)
     all_scores, all_inxs = batch_search(index, q_vecs, topk=sample_range[-1])
+    assert len(all_inxs) == len(queries)
 
     for i, query in enumerate(queries):
         pos = poses[query]
@@ -263,12 +264,12 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
         inxs = all_inxs[i][sample_range[0]:sample_range[1]]
         scores = all_scores[i][sample_range[0]:sample_range[1]]
         filtered_inx = []
-        for i, inx in enumerate(inxs):
+        for j, inx in enumerate(inxs):
             if inx == -1:
                 break
             # corpus[inx] not in item['pos'] and corpus[inx] != query and
             if corpus[inx] not in prompt_dict or prompt_dict[corpus[inx]] != action:
-                if scores[i] < score_threshold:
+                if scores[j] < score_threshold:
                     break
                 filtered_inx.append(inx)
         filtered_inx = list(set(filtered_inx))
