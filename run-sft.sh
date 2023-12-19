@@ -4,14 +4,14 @@ unset http_proxy https_proxy
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 base_model=../bge-large-zh-911
-base_model=../bge-large-zh-1029-v4 # using before 1206
+base_model=../bge-large-zh-1029-v4
 base_model=../bge-large-zh-1206-v2
 
-out_model=../bge-large-zh-1218-v1
-train_data=../1218-hn-1.jsonl
+out_model=../bge-large-zh-1219-v1
+train_data=../1219-hn-1.jsonl
 
 batch_size=60
-epochs=20
+epochs=40
 
 master_port=29600
 
@@ -31,7 +31,7 @@ torchrun --nproc_per_node $num_devices --master-port ${master_port} \
 --dataloader_drop_last True \
 --normlized True \
 --temperature 0.02 \
---query_max_len 64 \
+--query_max_len 256 \
 --passage_max_len 256 \
 --train_group_size 2 \
 --save_steps 10000 \
