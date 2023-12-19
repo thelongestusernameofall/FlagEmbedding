@@ -19,6 +19,7 @@ def get_args():
     parser.add_argument('--negative_number', default=15, type=int, help='negative number for each query')
     parser.add_argument('--query_instruction_for_retrieval', default="")
     parser.add_argument('--batch_size', default=256, type=int, help='batch size for inference')
+    parser.add_argument('--score_threshold', default=0.55, type=float, help='score threshold for filtering')
 
     return parser.parse_args()
 
@@ -210,7 +211,7 @@ def find_knn_neg_old(model, input_file, candidate_pool, output_file, sample_rang
 
 
 def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, negative_number, use_gpu,
-                 batch_size=256):
+                 batch_size=256, score_threshold=0.55):
     corpus = []
     queries = []
     poses = {}
@@ -234,6 +235,7 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
             corpus.append(pos)
 
     corpus = list(set(corpus))
+    queries = list(set(queries))
     # for prompt in corpus:
     #     queries.extend(create_querys(prompt, number=1))
 
@@ -249,9 +251,9 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
     print(f'inferencing embedding for queries (number={len(queries)})--------------')
     q_vecs = model.encode_queries(queries, batch_size=batch_size)
 
-    print('creat index and search------------------')
+    print('create index and search------------------')
     index = create_index(p_vecs, use_gpu=use_gpu)
-    _, all_inxs = batch_search(index, q_vecs, topk=sample_range[-1])
+    all_scores, all_inxs = batch_search(index, q_vecs, topk=sample_range[-1])
 
     for i, query in enumerate(queries):
         pos = poses[query]
@@ -259,11 +261,15 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
 
         item = {"query": query, "pos": [pos]}
         inxs = all_inxs[i][sample_range[0]:sample_range[1]]
+        scores = all_scores[i][sample_range[0]:sample_range[1]]
         filtered_inx = []
         for inx in inxs:
-            if inx == -1: break
+            if inx == -1:
+                break
             # corpus[inx] not in item['pos'] and corpus[inx] != query and
             if corpus[inx] not in prompt_dict or prompt_dict[corpus[inx]] != action:
+                if scores[inx] < score_threshold:
+                    break
                 filtered_inx.append(inx)
         filtered_inx = list(set(filtered_inx))
         if len(filtered_inx) > negative_number:
@@ -277,9 +283,8 @@ def find_knn_neg(model, input_file, candidate_pool, output_file, sample_range, n
     random.shuffle(train_data)
     with open(output_file, 'w') as f:
         for data in train_data:
-            # if len(data['neg']) < negative_number:
-            #     data['neg'].extend(random.sample(corpus, negative_number - len(data['neg'])))
             f.write(json.dumps(data, ensure_ascii=False) + '\n')
+    print(f"write {len(train_data)} data to {output_file}")
 
 
 if __name__ == '__main__':
@@ -296,4 +301,5 @@ if __name__ == '__main__':
                  sample_range=sample_range,
                  negative_number=args.negative_number,
                  use_gpu=args.use_gpu_for_searching,
-                 batch_size=args.batch_size)
+                 batch_size=args.batch_size,
+                 score_threshold=args.score_threshold)
