@@ -17,5 +17,5 @@ python -m FlagEmbedding.baai_general_embedding.finetune.hn_simon \
          --range_for_sampling 0-100 \
          --negative_number 10 \
          --batch_size ${batch_size} \
-	 --score_threshold 0.55 \
+	       --score_threshold 0.55 \
          --use_gpu_for_searching
